@@ -161,7 +161,7 @@ def get_loader(args):
             train_ds = data.CacheDataset(
                 data=datalist,
                 transform=train_transform,
-                cache_num=24,
+                cache_num=18,
                 cache_rate=1.0,
                 num_workers=args.workers,
             )
