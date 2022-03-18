@@ -22,6 +22,7 @@ from monai.metrics import DiceMetric
 from monai.utils.enums import MetricReduction
 from monai.transforms import AsDiscrete,Activations,Compose
 from networks.unetr import UNETR
+from monai.networks.nets import UNet
 from utils.data_utils import get_loader
 from trainer import run_training
 from optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
@@ -137,18 +138,30 @@ def main_worker(gpu, args):
             res_block=True,
             dropout_rate=args.dropout_rate)
 
-        if args.resume_ckpt:
-            model_dict = torch.load(os.path.join(pretrained_dir, args.pretrained_model_name))
-            model.load_state_dict(model_dict)
-            print('Use pretrained weights')
+    elif args.model_name == 'unet':
+        model = UNet(
+            spatial_dims = 3,
+            in_channels=args.in_channels,
+            out_channels=args.out_channels,
+            channels = (32, 64, 128, 256, 512),
+            strides = (2,2,2,2),
+            norm = args.norm_name
+        )
 
-        if args.resume_jit:
-            if not args.noamp:
-                print('Training from pre-trained checkpoint does not support AMP\nAMP is disabled.')
-                args.amp = args.noamp
-            model = torch.jit.load(os.path.join(pretrained_dir, args.pretrained_model_name))
     else:
         raise ValueError('Unsupported model ' + str(args.model_name))
+
+    if args.resume_ckpt:
+        model_dict = torch.load(os.path.join(pretrained_dir, args.pretrained_model_name))
+        model.load_state_dict(model_dict)
+        print('Use pretrained weights')
+
+    if args.resume_jit:
+        if not args.noamp:
+            print('Training from pre-trained checkpoint does not support AMP\nAMP is disabled.')
+            args.amp = args.noamp
+        model = torch.jit.load(os.path.join(pretrained_dir, args.pretrained_model_name))
+
 
     dice_loss = DiceCELoss(to_onehot_y=True,
                            softmax=True,
