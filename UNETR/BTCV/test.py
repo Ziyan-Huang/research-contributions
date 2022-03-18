@@ -78,12 +78,13 @@ def main():
             res_block=True,
             dropout_rate=args.dropout_rate)
         model_dict = torch.load(pretrained_pth)
-        model.load_state_dict(model_dict)
+        model.load_state_dict(model_dict['state_dict'])
     model.eval()
     model.to(device)
 
     with torch.no_grad():
         dice_list_case = []
+        dice_list_organ = [[] for i in range(args.out_channels - 1)]
         for i, batch in enumerate(val_loader):
             val_inputs, val_labels = (batch["image"].cuda(), batch["label"].cuda())
             img_name = batch['image_meta_dict']['filename_or_obj'][0].split('/')[-1]
@@ -97,13 +98,18 @@ def main():
             val_outputs = np.argmax(val_outputs, axis=1).astype(np.uint8)
             val_labels = val_labels.cpu().numpy()[:, 0, :, :, :]
             dice_list_sub = []
-            for i in range(1, 14):
+            for i in range(1, args.out_channels):
                 organ_Dice = dice(val_outputs[0] == i, val_labels[0] == i)
                 dice_list_sub.append(organ_Dice)
+                dice_list_organ[i-1].append(organ_Dice)
             mean_dice = np.mean(dice_list_sub)
             print("Mean Organ Dice: {}".format(mean_dice))
             dice_list_case.append(mean_dice)
         print("Overall Mean Dice: {}".format(np.mean(dice_list_case)))
+
+        for i in range(1,args.out_channels):
+            print('class: {}'.format(i))
+            print('mean dice: {}'.format(np.mean(dice_list_organ[i-1])))
 
 if __name__ == '__main__':
     main()
